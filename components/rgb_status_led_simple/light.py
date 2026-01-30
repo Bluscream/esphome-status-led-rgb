@@ -1,7 +1,22 @@
+"""
+ESPHome RGB Status LED Simple Component
+
+A minimal component that works exactly like ESPHome's internal status_led
+but with RGB light support.
+
+Author: Bluscream
+License: MIT
+Updated: 2026-01-30 04:29:00 UTC
+"""
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import light, output
 from esphome.const import CONF_ID, CONF_OUTPUT, CONF_RED, CONF_GREEN, CONF_BLUE
+
+# Component metadata
+CODEOWNERS = ["@esphome/core"]
+AUTO_LOAD = ["light"]
 
 # Namespace for the component
 rgb_status_led_simple_ns = cg.esphome_ns.namespace("rgb_status_led_simple")
