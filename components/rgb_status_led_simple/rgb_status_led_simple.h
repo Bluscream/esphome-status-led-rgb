@@ -12,14 +12,16 @@ namespace rgb_status_led_simple {
 /**
  * @brief RGB Status LED Simple Component
  * 
- * This component works exactly like ESPHome's internal status_led but with RGB light support.
- * It monitors ESPHome's application state for errors and warnings, and allows manual
- * RGB light control when no status is active.
+ * This component works exactly like ESPHome's internal status_led
+ * but with RGB light support. It monitors ESPHome's application state for 
+ * errors and warnings, and shows the appropriate RGB colors when active.
+ * 
+ * When no status is active, the LED is turned off (like vanilla status_led).
  * 
  * Behavior matches vanilla status_led:
  * - Error: Fast blink (250ms period, 150ms on, 60% duty cycle)
  * - Warning: Slow blink (1500ms period, 250ms on, 17% duty cycle)
- * - No status: User has full manual control over RGB colors
+ * - No status: LED off (no manual control)
  */
 class RGBStatusLEDSimple : public light::LightOutput, public Component {
  public:
@@ -75,15 +77,11 @@ class RGBStatusLEDSimple : public light::LightOutput, public Component {
   float brightness_{1.0f};               ///< Global brightness multiplier (0.0 to 1.0)
 
   // State management
-  bool user_control_active_{false};       ///< Whether user is controlling the LED
   bool is_blink_on_{false};              ///< Current blink state (on/off)
-  light::LightState *light_state_{nullptr}; ///< Current light state for user control
 
   // Internal methods
   void set_rgb_output_(const RGBColor &color, float brightness_scale = 1.0f);
   void set_rgb_output_(float r, float g, float b, float brightness_scale = 1.0f);
-  void apply_status_state_();
-  bool should_show_status_();
 };
 
 }  // namespace rgb_status_led_simple

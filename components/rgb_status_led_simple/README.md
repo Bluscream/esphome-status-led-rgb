@@ -1,13 +1,19 @@
 # ESPHome RGB Status LED Simple Component
 
-A minimal component that works exactly like ESPHome's internal `status_led` but with RGB light support and manual color control when no status is active.
+A minimal component that works exactly like vanilla status_led:
+- **2 Status States**: Error, Warning only (like vanilla)
+- **Vanilla Compatibility**: Exact timing and behavior
+- **RGB Light Support**: Shows RGB colors for status indication
+- **Minimal Configuration**: Simple setup like vanilla status_led
+- **Lightweight**: Minimal memory and CPU usage
+
+**Use Case:** Basic status monitoring, learning, simple deployments
 
 ## 🎯 Purpose
 
 This component provides the simplest possible RGB status LED that:
 - Works **exactly** like ESPHome's vanilla `status_led`
 - Monitors only **error** and **warning** states (no extra features)
-- Allows **full manual RGB control** when no status is active
 - Uses **ESPHome-compatible timing** (250ms/60% error, 1500ms/17% warning)
 - **No event automations needed** - automatically detects system state
 

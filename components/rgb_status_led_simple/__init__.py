@@ -2,7 +2,7 @@
 ESPHome RGB Status LED Simple Component
 
 A minimal component that works exactly like ESPHome's internal status_led
-but with RGB light support and manual color control when no status is active.
+but with RGB light support.
 
 Author: Bluscream
 License: MIT

@@ -32,16 +32,53 @@ void RGBStatusLEDSimple::dump_config() {
 }
 
 void RGBStatusLEDSimple::loop() {
-  // Check if we should show status or user control
-  if (this->should_show_status_()) {
-    this->apply_status_state_();
-  } else {
-    // User control - restore the light state
-    if (this->light_state_ != nullptr) {
-      this->light_state_->current_values_as_brightness(&this->brightness_);
-      this->light_state_->current_values_as_rgb(&this->red_output_, &this->green_output_, &this->blue_output_);
+  // Check for system status and apply appropriate indication
+  uint32_t app_state = App.get_app_state();
+  uint32_t now = millis();
+  
+  // Check for errors (highest priority) - matches ESPHome internal status_led
+  if ((app_state & STATUS_LED_ERROR) != 0u) {
+    // Fast blinking - match ESPHome timing: 250ms period, 150ms on (60% duty cycle)
+    uint32_t period = this->error_blink_speed_;
+    uint32_t on_time = period * 3 / 5;  // 60% on, 40% off (matching ESPHome)
+    
+    if ((now % period) < on_time) {
+      if (!this->is_blink_on_) {
+        this->set_rgb_output_(this->error_color_);
+        this->is_blink_on_ = true;
+      }
+    } else {
+      if (this->is_blink_on_) {
+        this->set_rgb_output_(0.0f, 0.0f, 0.0f);
+        this->is_blink_on_ = false;
+      }
     }
+    return;
   }
+  
+  // Check for warnings - matches ESPHome internal status_led
+  if ((app_state & STATUS_LED_WARNING) != 0u) {
+    // Slow blinking - match ESPHome timing: 1500ms period, 250ms on (17% duty cycle)
+    uint32_t period = this->warning_blink_speed_;
+    uint32_t on_time = period / 6;  // 17% on, 83% off (matching ESPHome)
+    
+    if ((now % period) < on_time) {
+      if (!this->is_blink_on_) {
+        this->set_rgb_output_(this->warning_color_);
+        this->is_blink_on_ = true;
+      }
+    } else {
+      if (this->is_blink_on_) {
+        this->set_rgb_output_(0.0f, 0.0f, 0.0f);
+        this->is_blink_on_ = false;
+      }
+    }
+    return;
+  }
+  
+  // No status active - turn LED off (like vanilla status_led)
+  this->set_rgb_output_(0.0f, 0.0f, 0.0f);
+  this->is_blink_on_ = false;
 }
 
 light::LightTraits RGBStatusLEDSimple::get_traits() {
@@ -51,14 +88,9 @@ light::LightTraits RGBStatusLEDSimple::get_traits() {
 }
 
 void RGBStatusLEDSimple::write_state(light::LightState *state) {
-  this->light_state_ = state;
-  this->user_control_active_ = true;
-  
-  // Apply the user's desired state immediately if no status is active
-  if (!this->should_show_status_()) {
-    state->current_values_as_brightness(&this->brightness_);
-    state->current_values_as_rgb(&this->red_output_, &this->green_output_, &this->blue_output_);
-  }
+  // For vanilla status_led behavior, we don't interfere with manual light control
+  // The loop() method handles all status indication automatically
+  // When no status is active, the LED is off
 }
 
 void RGBStatusLEDSimple::set_rgb_output_(const RGBColor &color, float brightness_scale) {
