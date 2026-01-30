@@ -1,0 +1,75 @@
+# Example configuration for RGB Status LED Simple
+# Works exactly like vanilla status_led but with RGB light support
+
+# Use GitHub external components
+external_components:
+  - source: github://Bluscream/esphome-rgb-status-led@main
+    components: [rgb_status_led_simple]
+
+# RGB Status LED Simple - minimal configuration like vanilla status_led
+light:
+  - platform: rgb_status_led_simple
+    id: system_status_led
+    name: "System Status LED"
+    red: out_led_r
+    green: out_led_g
+    blue: out_led_b
+    
+    # Simple color configuration - only error and warning like vanilla status_led
+    error_color:
+      red: 100%
+      green: 0%
+      blue: 0%
+    warning_color:
+      red: 100%
+      green: 50%
+      blue: 0%
+    
+    # Timing configuration - matches ESPHome internal status_led exactly
+    error_blink_speed: 250ms
+    warning_blink_speed: 1500ms
+    brightness: 80%
+
+# RGB LED outputs
+output:
+  - platform: ledc
+    id: out_led_r
+    pin: GPIO4
+    channel: 0
+  - platform: ledc
+    id: out_led_g
+    pin: GPIO19
+    channel: 1
+  - platform: ledc
+    id: out_led_b
+    pin: GPIO18
+    channel: 2
+
+# No event automations needed!
+# The component automatically detects ESPHome's internal error/warning states
+# and shows them with the configured colors and timing.
+
+# Manual control works when no status is active:
+# - Use Home Assistant to set any RGB color
+# - Use automations to set specific colors
+# - Use the light.turn_on service with RGB parameters
+
+# Example manual control automation:
+# automation:
+#   - trigger:
+#       - platform: time_pattern
+#         seconds: 0
+#     action:
+#       - light.turn_on:
+#           id: system_status_led
+#           rgb: [0, 100, 50]  # Cyan
+#           brightness: 50%
+#     condition:
+#       # Only apply when no system errors/warnings
+#       - lambda: 'return (App.get_app_state() & (STATUS_LED_ERROR | STATUS_LED_WARNING)) == 0;'
+
+# Behavior:
+# - System errors: Red fast blink (250ms, 60% duty) - overrides user control
+# - System warnings: Orange slow blink (1500ms, 17% duty) - overrides user control  
+# - No status: Full user control over RGB colors and brightness
+# - Matches vanilla status_led timing exactly
