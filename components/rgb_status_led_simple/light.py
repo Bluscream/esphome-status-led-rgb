@@ -4,9 +4,8 @@ from esphome.components import light, output
 from esphome.const import CONF_ID, CONF_OUTPUT, CONF_RED, CONF_GREEN, CONF_BLUE
 from esphome.core import CoroPriority, coroutine_with_priority
 
-# Namespace for the component
-rgb_status_led_simple_ns = cg.esphome_ns.namespace("rgb_status_led_simple")
-RGBStatusLEDSimple = rgb_status_led_simple_ns.class_("RGBStatusLEDSimple", light.LightOutput)
+# Import the class from __init__.py
+from . import RGBStatusLEDSimple
 
 # Configuration keys
 CONF_ERROR_COLOR = "error_color"
