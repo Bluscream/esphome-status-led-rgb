@@ -20,7 +20,7 @@ AUTO_LOAD = ["light"]
 
 # Namespace for the component
 rgb_status_led_simple_ns = cg.esphome_ns.namespace("rgb_status_led_simple")
-RGBStatusLEDSimple = rgb_status_led_simple_ns.class_("RGBStatusLEDSimple", light::LightOutput, cg.Component)
+RGBStatusLEDSimple = rgb_status_led_simple_ns.class_("RGBStatusLEDSimple", light.LightOutput, cg.Component)
 
 # Configuration keys
 CONF_ERROR_COLOR = "error_color"
