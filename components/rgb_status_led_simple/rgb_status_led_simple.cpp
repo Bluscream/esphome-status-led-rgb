@@ -4,81 +4,50 @@
 namespace esphome {
 namespace rgb_status_led_simple {
 
-const char *const RGBStatusLEDSimple::TAG = "rgb_status_led_simple";
+static const char *const TAG = "rgb_status_led_simple";
 
-RGBStatusLEDSimple::RGBStatusLEDSimple() {
-  // Initialize with user control by default
-  this->user_control_active_ = false;
-}
+RGBStatusLEDSimple::RGBStatusLEDSimple() = default;
 
 void RGBStatusLEDSimple::setup() {
   ESP_LOGCONFIG(TAG, "Setting up RGB Status LED Simple...");
-  
-  // Initialize outputs to off
   this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-  
   ESP_LOGCONFIG(TAG, "RGB Status LED Simple setup completed");
-  ESP_LOGCONFIG(TAG, "  Error blink speed: %ums (matches ESPHome)", this->error_blink_speed_);
-  ESP_LOGCONFIG(TAG, "  Warning blink speed: %ums (matches ESPHome)", this->warning_blink_speed_);
-  ESP_LOGCONFIG(TAG, "  Brightness: %.1f%%", this->brightness_ * 100.0f);
 }
 
 void RGBStatusLEDSimple::dump_config() {
   ESP_LOGCONFIG(TAG, "RGB Status LED Simple:");
-  ESP_LOGCONFIG(TAG, "  Error Color: R=%.1f, G=%.1f, B=%.1f", 
-                this->error_color_.r * 100.0f, this->error_color_.g * 100.0f, this->error_color_.b * 100.0f);
-  ESP_LOGCONFIG(TAG, "  Warning Color: R=%.1f, G=%.1f, B=%.1f", 
-                this->warning_color_.r * 100.0f, this->warning_color_.g * 100.0f, this->warning_color_.b * 100.0f);
+  LOG_PIN("  Red Pin: ", this->red_output_);
+  LOG_PIN("  Green Pin: ", this->green_output_);
+  LOG_PIN("  Blue Pin: ", this->blue_output_);
+  ESP_LOGCONFIG(TAG, "  Supports manual control when no status is active");
 }
 
 void RGBStatusLEDSimple::loop() {
-  // Check for system status and apply appropriate indication
   uint32_t app_state = App.get_app_state();
+  bool has_status = (app_state & (STATUS_LED_ERROR | STATUS_LED_WARNING)) != 0;
   uint32_t now = millis();
-  
-  // Check for errors (highest priority) - matches ESPHome internal status_led
-  if ((app_state & STATUS_LED_ERROR) != 0u) {
-    // Fast blinking - match ESPHome timing: 250ms period, 150ms on (60% duty cycle)
-    uint32_t period = this->error_blink_speed_;
-    uint32_t on_time = period * 3 / 5;  // 60% on, 40% off (matching ESPHome)
-    
-    if ((now % period) < on_time) {
-      if (!this->is_blink_on_) {
-        this->set_rgb_output_(this->error_color_);
-        this->is_blink_on_ = true;
-      }
-    } else {
-      if (this->is_blink_on_) {
-        this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-        this->is_blink_on_ = false;
-      }
+
+  if (has_status) {
+    manual_control_ = false;  // Status takes priority
+    if (app_state & STATUS_LED_ERROR) {
+      // Fast blink (250ms period, 150ms on)
+      bool led_on = (now % 250) < 150;
+      set_rgb_output_(error_color_, led_on ? 1.0f : 0.0f);
+    } 
+    else if (app_state & STATUS_LED_WARNING) {
+      // Slow blink (1500ms period, 250ms on)
+      bool led_on = (now % 1500) < 250;
+      set_rgb_output_(warning_color_, led_on ? 1.0f : 0.0f);
     }
-    return;
+  } 
+  else if (manual_control_) {
+    // Manual control when no status is active
+    set_rgb_output_(manual_color_, manual_brightness_);
+  } 
+  else {
+    // No status and no manual control - turn off
+    set_rgb_output_(0.0f, 0.0f, 0.0f, 0.0f);
   }
-  
-  // Check for warnings - matches ESPHome internal status_led
-  if ((app_state & STATUS_LED_WARNING) != 0u) {
-    // Slow blinking - match ESPHome timing: 1500ms period, 250ms on (17% duty cycle)
-    uint32_t period = this->warning_blink_speed_;
-    uint32_t on_time = period / 6;  // 17% on, 83% off (matching ESPHome)
-    
-    if ((now % period) < on_time) {
-      if (!this->is_blink_on_) {
-        this->set_rgb_output_(this->warning_color_);
-        this->is_blink_on_ = true;
-      }
-    } else {
-      if (this->is_blink_on_) {
-        this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-        this->is_blink_on_ = false;
-      }
-    }
-    return;
-  }
-  
-  // No status active - turn LED off (like vanilla status_led)
-  this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-  this->is_blink_on_ = false;
 }
 
 light::LightTraits RGBStatusLEDSimple::get_traits() {
@@ -88,82 +57,20 @@ light::LightTraits RGBStatusLEDSimple::get_traits() {
 }
 
 void RGBStatusLEDSimple::write_state(light::LightState *state) {
-  // For vanilla status_led behavior, we don't interfere with manual light control
-  // The loop() method handles all status indication automatically
-  // When no status is active, the LED is off
+  // Store manual color and brightness
+  manual_control_ = true;
+  state->current_values_as_rgb(&manual_color_.r, &manual_color_.g, &manual_color_.b, &manual_brightness_);
 }
 
 void RGBStatusLEDSimple::set_rgb_output_(const RGBColor &color, float brightness_scale) {
-  this->set_rgb_output_(color.r, color.g, color.b, brightness_scale);
+  set_rgb_output_(color.r, color.g, color.b, brightness_scale);
 }
 
 void RGBStatusLEDSimple::set_rgb_output_(float r, float g, float b, float brightness_scale) {
-  float final_brightness = this->brightness_ * brightness_scale;
-  
-  if (this->red_output_ != nullptr) {
-    this->red_output_->set_level(r * final_brightness);
-  }
-  if (this->green_output_ != nullptr) {
-    this->green_output_->set_level(g * final_brightness);
-  }
-  if (this->blue_output_ != nullptr) {
-    this->blue_output_->set_level(b * final_brightness);
-  }
-}
-
-void RGBStatusLEDSimple::apply_status_state_() {
-  uint32_t app_state = App.get_app_state();
-  uint32_t now = millis();
-  
-  // Check for errors (highest priority) - matches ESPHome internal status_led
-  if ((app_state & STATUS_LED_ERROR) != 0u) {
-    // Fast blinking - match ESPHome timing: 250ms period, 150ms on (60% duty cycle)
-    uint32_t period = this->error_blink_speed_;
-    uint32_t on_time = period * 3 / 5;  // 60% on, 40% off (matching ESPHome)
-    
-    if ((now % period) < on_time) {
-      if (!this->is_blink_on_) {
-        this->set_rgb_output_(this->error_color_);
-        this->is_blink_on_ = true;
-      }
-    } else {
-      if (this->is_blink_on_) {
-        this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-        this->is_blink_on_ = false;
-      }
-    }
-    return;
-  }
-  
-  // Check for warnings - matches ESPHome internal status_led
-  if ((app_state & STATUS_LED_WARNING) != 0u) {
-    // Slow blinking - match ESPHome timing: 1500ms period, 250ms on (17% duty cycle)
-    uint32_t period = this->warning_blink_speed_;
-    uint32_t on_time = period / 6;  // 17% on, 83% off (matching ESPHome)
-    
-    if ((now % period) < on_time) {
-      if (!this->is_blink_on_) {
-        this->set_rgb_output_(this->warning_color_);
-        this->is_blink_on_ = true;
-      }
-    } else {
-      if (this->is_blink_on_) {
-        this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-        this->is_blink_on_ = false;
-      }
-    }
-    return;
-  }
-  
-  // No status active - turn off LED (user control will restore their color)
-  this->set_rgb_output_(0.0f, 0.0f, 0.0f);
-  this->is_blink_on_ = false;
-}
-
-bool RGBStatusLEDSimple::should_show_status_() {
-  // Show status if there are any error or warning flags
-  uint32_t app_state = App.get_app_state();
-  return ((app_state & STATUS_LED_ERROR) != 0u) || ((app_state & STATUS_LED_WARNING) != 0u);
+  float final_brightness = brightness_ * brightness_scale;
+  if (red_output_) red_output_->set_level(r * final_brightness);
+  if (green_output_) green_output_->set_level(g * final_brightness);
+  if (blue_output_) blue_output_->set_level(b * final_brightness);
 }
 
 }  // namespace rgb_status_led_simple
