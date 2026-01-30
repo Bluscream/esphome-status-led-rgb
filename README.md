@@ -21,7 +21,8 @@ Advanced event-driven status monitoring with 11 states:
 Minimal component like vanilla `status_led`:
 - Error & Warning states only
 - Exact vanilla timing & behavior
-- Manual RGB control when idle
+- RGB light support for status indication
+- LED off when no status (like vanilla)
 - Minimal configuration
 
 **Use:** Basic monitoring, learning, simple setups
