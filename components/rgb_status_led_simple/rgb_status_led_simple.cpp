@@ -1,16 +1,15 @@
 #include "rgb_status_led_simple.h"
 #include "esphome/core/log.h"
+#include "esphome/core/application.h"
 
 namespace esphome {
 namespace rgb_status_led_simple {
 
 static const char *const TAG = "rgb_status_led_simple";
 
-RGBStatusLEDSimple::RGBStatusLEDSimple() = default;
-
 void RGBStatusLEDSimple::setup() {
   ESP_LOGCONFIG(TAG, "Setting up RGB Status LED Simple...");
-  this->set_rgb_output_(0.0f, 0.0f, 0.0f);
+  this->set_rgb_output_(0.0f, 0.0f, 0.0f, 0.0f);  // Start with LED off
   ESP_LOGCONFIG(TAG, "RGB Status LED Simple setup completed");
 }
 
@@ -19,6 +18,13 @@ void RGBStatusLEDSimple::dump_config() {
   LOG_PIN("  Red Pin: ", this->red_output_);
   LOG_PIN("  Green Pin: ", this->green_output_);
   LOG_PIN("  Blue Pin: ", this->blue_output_);
+  ESP_LOGCONFIG(TAG, "  Error Color: R=%.1f%%, G=%.1f%%, B=%.1f%%", 
+                error_color_.r * 100, error_color_.g * 100, error_color_.b * 100);
+  ESP_LOGCONFIG(TAG, "  Warning Color: R=%.1f%%, G=%.1f%%, B=%.1f%%", 
+                warning_color_.r * 100, warning_color_.g * 100, warning_color_.b * 100);
+  ESP_LOGCONFIG(TAG, "  Error Blink Speed: %ums", error_blink_speed_);
+  ESP_LOGCONFIG(TAG, "  Warning Blink Speed: %ums", warning_blink_speed_);
+  ESP_LOGCONFIG(TAG, "  Brightness: %.0f%%", brightness_ * 100);
   ESP_LOGCONFIG(TAG, "  Supports manual control when no status is active");
 }
 
@@ -28,25 +34,44 @@ void RGBStatusLEDSimple::loop() {
   uint32_t now = millis();
 
   if (has_status) {
-    manual_control_ = false;  // Status takes priority
+    // Status takes priority
     if (app_state & STATUS_LED_ERROR) {
-      // Fast blink (250ms period, 150ms on)
-      bool led_on = (now % 250) < 150;
-      set_rgb_output_(error_color_, led_on ? 1.0f : 0.0f);
+      // Fast blink with error color
+      bool led_on = (now % error_blink_speed_) < (error_blink_speed_ * 3 / 5);  // 60% duty cycle
+      set_rgb_output_(
+        error_color_.r,
+        error_color_.g,
+        error_color_.b,
+        led_on ? 1.0f : 0.0f
+      );
     } 
     else if (app_state & STATUS_LED_WARNING) {
-      // Slow blink (1500ms period, 250ms on)
-      bool led_on = (now % 1500) < 250;
-      set_rgb_output_(warning_color_, led_on ? 1.0f : 0.0f);
+      // Slow blink with warning color
+      bool led_on = (now % warning_blink_speed_) < (warning_blink_speed_ / 6);  // ~17% duty cycle
+      set_rgb_output_(
+        warning_color_.r,
+        warning_color_.g,
+        warning_color_.b,
+        led_on ? 1.0f : 0.0f
+      );
     }
   } 
-  else if (manual_control_) {
-    // Manual control when no status is active
-    set_rgb_output_(manual_color_, manual_brightness_);
-  } 
-  else {
-    // No status and no manual control - turn off
-    set_rgb_output_(0.0f, 0.0f, 0.0f, 0.0f);
+  else if (lightstate_ != nullptr) {
+    // No status - restore manual state
+    bool state;
+    lightstate_->current_values_as_binary(&state);
+    if (state) {
+      // Use the last manual color and brightness
+      set_rgb_output_(
+        manual_color_.r,
+        manual_color_.g,
+        manual_color_.b,
+        manual_brightness_
+      );
+    } else {
+      // Turn off
+      set_rgb_output_(0.0f, 0.0f, 0.0f, 0.0f);
+    }
   }
 }
 
@@ -57,9 +82,32 @@ light::LightTraits RGBStatusLEDSimple::get_traits() {
 }
 
 void RGBStatusLEDSimple::write_state(light::LightState *state) {
-  // Store manual color and brightness
-  manual_control_ = true;
-  state->current_values_as_rgb(&manual_color_.r, &manual_color_.g, &manual_color_.b, &manual_brightness_);
+  // Store the light state for later use
+  lightstate_ = state;
+  
+  // Update manual color and brightness
+  state->current_values_as_rgb(
+    &manual_color_.r,
+    &manual_color_.g,
+    &manual_color_.b,
+    &manual_brightness_
+  );
+  
+  // If no status is active, apply the new state immediately
+  if ((App.get_app_state() & (STATUS_LED_ERROR | STATUS_LED_WARNING)) == 0) {
+    bool binary;
+    state->current_values_as_binary(&binary);
+    if (binary) {
+      set_rgb_output_(
+        manual_color_.r,
+        manual_color_.g,
+        manual_color_.b,
+        manual_brightness_
+      );
+    } else {
+      set_rgb_output_(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+  }
 }
 
 void RGBStatusLEDSimple::set_rgb_output_(const RGBColor &color, float brightness_scale) {

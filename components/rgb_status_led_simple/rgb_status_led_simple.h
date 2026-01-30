@@ -11,7 +11,7 @@ namespace rgb_status_led_simple {
 
 class RGBStatusLEDSimple : public light::LightOutput, public Component {
  public:
-  RGBStatusLEDSimple();
+  RGBStatusLEDSimple() = default;
 
   // Component lifecycle
   void setup() override;
@@ -29,9 +29,9 @@ class RGBStatusLEDSimple : public light::LightOutput, public Component {
   void set_green_output(output::FloatOutput *output) { green_output_ = output; }
   void set_blue_output(output::FloatOutput *output) { blue_output_ = output; }
   
+  // Status LED configuration
   void set_error_color(float r, float g, float b) { error_color_ = {r, g, b}; }
   void set_warning_color(float r, float g, float b) { warning_color_ = {r, g, b}; }
-  
   void set_error_blink_speed(uint32_t speed) { error_blink_speed_ = speed; }
   void set_warning_blink_speed(uint32_t speed) { warning_blink_speed_ = speed; }
   void set_brightness(float brightness) { brightness_ = brightness; }
@@ -52,22 +52,23 @@ class RGBStatusLEDSimple : public light::LightOutput, public Component {
     float r, g, b;
     RGBColor(float red = 0, float green = 0, float blue = 0) : r(red), g(green), b(blue) {}
   };
-  
-  // Color definitions for status states
-  RGBColor error_color_{1.0f, 0.0f, 0.0f};     ///< Red for errors
-  RGBColor warning_color_{1.0f, 0.5f, 0.0f};   ///< Orange for warnings
 
-  // Timing configuration - matches ESPHome internal status_led exactly
-  uint32_t error_blink_speed_{250};     ///< Error blink period in milliseconds
-  uint32_t warning_blink_speed_{1500};  ///< Warning blink period in milliseconds
-  float brightness_{1.0f};              ///< Global brightness multiplier (0.0 to 1.0)
+  // Color definitions for status states
+  RGBColor error_color_{1.0f, 0.0f, 0.0f};     // Red for errors
+  RGBColor warning_color_{1.0f, 0.5f, 0.0f};   // Orange for warnings
+
+  // Timing configuration
+  uint32_t error_blink_speed_{250};     // Error blink period in milliseconds
+  uint32_t warning_blink_speed_{1500};  // Warning blink period in milliseconds
+  float brightness_{1.0f};              // Global brightness multiplier (0.0 to 1.0)
 
   // State management
-  bool is_blink_on_{false};             ///< Current blink state (on/off)
-  bool manual_control_{false};          ///< Whether manual control is active
-  RGBColor manual_color_{0.0f, 0.0f, 0.0f}; ///< Manually set color
-  float manual_brightness_{1.0f};       ///< Manually set brightness
+  bool is_blink_on_{false};                   // Current blink state (on/off)
+  light::LightState *lightstate_{nullptr};    // Track the light state
+  RGBColor manual_color_{1.0f, 1.0f, 1.0f};   // Default to white
+  float manual_brightness_{1.0f};             // Default to full brightness
 
+ private:
   // Internal methods
   void set_rgb_output_(const RGBColor &color, float brightness_scale = 1.0f);
   void set_rgb_output_(float r, float g, float b, float brightness_scale = 1.0f);
